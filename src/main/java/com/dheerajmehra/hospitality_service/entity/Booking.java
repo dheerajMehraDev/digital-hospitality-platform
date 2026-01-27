@@ -1,5 +1,6 @@
 package com.dheerajmehra.hospitality_service.entity;
 
+
 import com.dheerajmehra.hospitality_service.entity.enums.BookingStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
