@@ -1,6 +1,5 @@
 package com.dheerajmehra.hospitality_service.controller;
 
-
 import com.dheerajmehra.hospitality_service.Service.HotelService;
 import com.dheerajmehra.hospitality_service.dto.HotelDto;
 import lombok.RequiredArgsConstructor;
@@ -42,7 +41,7 @@ public class HotelController {
         return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/{hotelId}")
+    @PatchMapping("/{hotelId}/activate")
     public ResponseEntity<Void> activateHotel(@PathVariable Long hotelId) {
         hotelService.activateHotel(hotelId);
         return ResponseEntity.noContent().build();
