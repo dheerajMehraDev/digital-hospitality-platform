@@ -1,7 +1,7 @@
 package com.dheerajmehra.hospitality_service.Service;
 
 
-import com.dheerajmehra.hospitality_service.dto.HotelDto;
+import com.dheerajmehra.hospitality_service.dto.HotelPriceDto;
 import com.dheerajmehra.hospitality_service.dto.HotelSearchRequest;
 import com.dheerajmehra.hospitality_service.entity.Room;
 import org.springframework.data.domain.Page;
@@ -12,5 +12,5 @@ public interface InventoryService {
 
     void deleteAllInventories(Room room);
 
-    Page<HotelDto> searchHotels(HotelSearchRequest hotelSearchRequest);
+    Page<HotelPriceDto> searchHotels(HotelSearchRequest hotelSearchRequest);
 }

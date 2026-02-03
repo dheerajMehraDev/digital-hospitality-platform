@@ -3,8 +3,8 @@ package com.dheerajmehra.hospitality_service.controller;
 
 import com.dheerajmehra.hospitality_service.Service.HotelService;
 import com.dheerajmehra.hospitality_service.Service.InventoryService;
-import com.dheerajmehra.hospitality_service.dto.HotelDto;
 import com.dheerajmehra.hospitality_service.dto.HotelInfoDto;
+import com.dheerajmehra.hospitality_service.dto.HotelPriceDto;
 import com.dheerajmehra.hospitality_service.dto.HotelSearchRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,9 +21,9 @@ public class HotelBrowseController {
     private final HotelService hotelService;
 
     @GetMapping("/search")
-    public ResponseEntity<Page<HotelDto>> searchHotels(@RequestBody HotelSearchRequest hotelSearchRequest) {
+    public ResponseEntity<Page<HotelPriceDto>> searchHotels(@RequestBody HotelSearchRequest hotelSearchRequest) {
 
-        Page<HotelDto> page = inventoryService.searchHotels(hotelSearchRequest);
+        var page = inventoryService.searchHotels(hotelSearchRequest);
         return ResponseEntity.ok(page);
     }
 
