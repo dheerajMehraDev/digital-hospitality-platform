@@ -20,7 +20,7 @@ public class JwtService {
         return Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
     }
 
-    private String getSecretToken(User user){
+    public String getSecretToken(User user){
         return Jwts.builder()
                 .setSubject(user.getId().toString())
                 .claim("email" , user.getEmail())
@@ -31,7 +31,7 @@ public class JwtService {
                 .compact();
     }
 
-    private String getRefreshToken(User user){
+    public String getRefreshToken(User user){
         return Jwts.builder()
                 .setSubject(user.getId().toString())
                 .claim("email" , user.getEmail())
@@ -42,7 +42,7 @@ public class JwtService {
                 .compact();
     }
 
-    private Long getUserIdFromToken(String token){
+    public Long getUserIdFromToken(String token){
         Claims claims = Jwts.parser()
                 .verifyWith(getSecretKey())
                 .build()

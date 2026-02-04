@@ -4,12 +4,15 @@ package com.dheerajmehra.hospitality_service.Service;
 import com.dheerajmehra.hospitality_service.dto.RoomDto;
 import com.dheerajmehra.hospitality_service.entity.Hotel;
 import com.dheerajmehra.hospitality_service.entity.Room;
+import com.dheerajmehra.hospitality_service.entity.User;
 import com.dheerajmehra.hospitality_service.exception.ResourceNotFoundException;
+import com.dheerajmehra.hospitality_service.exception.UnAuthorizedException;
 import com.dheerajmehra.hospitality_service.repository.HotelRepository;
 import com.dheerajmehra.hospitality_service.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +35,9 @@ public class RoomServiceImpl implements RoomService{
         Hotel hotel = hotelRepository
                 .findById(hotelId)
                 .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID: "+hotelId));
+        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if(!user.equals(hotel.getOwner()))
+            throw new UnAuthorizedException("user is not authorize to perform this action");
         Room room = modelMapper.map(roomDto, Room.class);
         room.setHotel(hotel);
         room = roomRepository.save(room);
@@ -72,6 +78,9 @@ public class RoomServiceImpl implements RoomService{
         Room room = roomRepository
                 .findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room not found with ID: "+roomId));
+        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if(!user.equals(room.getHotel().getOwner()))
+            throw new UnAuthorizedException(("user is not authorize to perform this action"));
         inventoryService.deleteAllInventories(room);
         roomRepository.deleteById(roomId);
     }
