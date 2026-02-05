@@ -4,14 +4,22 @@ package com.dheerajmehra.hospitality_service.Service;
 import com.dheerajmehra.hospitality_service.dto.BookingDto;
 import com.dheerajmehra.hospitality_service.dto.BookingRequest;
 import com.dheerajmehra.hospitality_service.dto.GuestDto;
+import com.dheerajmehra.hospitality_service.dto.PaymentVerifyRequest;
 import com.dheerajmehra.hospitality_service.entity.*;
 import com.dheerajmehra.hospitality_service.entity.enums.BookingStatus;
+import com.dheerajmehra.hospitality_service.entity.enums.PaymentStatus;
 import com.dheerajmehra.hospitality_service.exception.ResourceNotFoundException;
 import com.dheerajmehra.hospitality_service.exception.UnAuthorizedException;
 import com.dheerajmehra.hospitality_service.repository.*;
+import com.razorpay.Order;
+import com.razorpay.RazorpayClient;
+import com.razorpay.RazorpayException;
+import com.razorpay.Utils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
 import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +40,16 @@ public class BookingServiceImpl implements BookingService{
     private final HotelRepository hotelRepository;
     private final RoomRepository roomRepository;
     private final InventoryRepository inventoryRepository;
+    private final PaymentRepository paymentRepository;
+
+    @Value("${razorpay.api.key}")
+    private String apiKey;
+
+    @Value("${razorpay.api.secret}")
+    private String apiSecret;
+
+    @Value("${razorpay.webhook.secret}")
+    private String webhookSecret;
 
     @Override
     @Transactional
@@ -118,6 +136,134 @@ public class BookingServiceImpl implements BookingService{
         booking = bookingRepository.save(booking);
         return modelMapper.map(booking, BookingDto.class);
     }
+
+    @Override
+    public String initiliatePayment(Long bookingId) {
+      /* Booking booking = bookingRepository.findById(bookingId).orElseThrow(() -> new ResourceNotFoundException("booking not found for the id " + bookingId));
+
+       User user = getCurrentUser();
+       if(!user.equals(booking.getUser()))
+            throw new UnAuthorizedException("user is not authorize for this booking");
+       if(hasBookingExpired(booking))
+           throw new UnAuthorizedException("booking has expired for the booking id " + bookingId);*/
+//        int amount = booking.getAmount().intValue();
+
+
+        try {
+            return createOrder(1000,"INR",bookingId.toString());
+        } catch (RazorpayException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public String createOrder(int amount, String currency, String bookingId)
+            throws RazorpayException {
+
+        RazorpayClient razorpayClient = new RazorpayClient(apiKey, apiSecret);
+
+        JSONObject orderRequest = new JSONObject();
+        orderRequest.put("amount", amount);
+        orderRequest.put("currency", currency);
+        orderRequest.put("receipt", "BOOKING_" + bookingId);
+
+        Booking booking = bookingRepository.findById(Long.valueOf(bookingId))
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        Order order = razorpayClient.orders.create(orderRequest);
+
+        String razorpayOrderId = order.get("id");
+
+        Payment payment = Payment.builder()
+                .paymentStatus(PaymentStatus.PENDING)
+                .amount(order.get("amount"))
+                .booking(booking)
+                .transactionId(razorpayOrderId)   // real id
+                .build();
+
+        paymentRepository.save(payment);
+
+        return order.toString();
+    }
+
+
+    @Override
+    public void verifyPayment(PaymentVerifyRequest request) {
+        String orderId = request.getRazorpayOrderId();
+        String paymentId = request.getRazorpayPaymentId();
+        String razorpaySignature = request.getRazorpaySignature();
+
+
+        Payment payment = paymentRepository
+                .findByTransactionId(orderId)
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+
+        boolean isValid = false;
+        try {
+            isValid = Utils.verifySignature(orderId, paymentId, razorpaySignature);
+        } catch (RazorpayException e) {
+            throw new RuntimeException(e);
+        }
+
+        if (!isValid) {
+            payment.setPaymentStatus(PaymentStatus.CANCELLED);
+            paymentRepository.save(payment);
+            throw new RuntimeException("Payment verification failed");
+        }
+
+        payment.setPaymentStatus(PaymentStatus.CONFIRMED);
+        payment.setPaymentId(paymentId);
+
+        // TODO : set the booking status confirmed and reduce the inventory or other things related to this
+
+
+        paymentRepository.save(payment);
+    }
+
+    @Override
+    public boolean webHook(String payload, String signature) {
+        try {
+            // 1. Verify webhook signature
+            Utils.verifyWebhookSignature(payload, signature, webhookSecret);
+
+            JSONObject json = new JSONObject(payload);
+            String event = json.getString("event");
+
+            JSONObject paymentEntity =
+                    json.getJSONObject("payload")
+                            .getJSONObject("payment")
+                            .getJSONObject("entity");
+
+            String orderId = paymentEntity.getString("order_id");
+
+            Payment payment = paymentRepository
+                    .findByTransactionId(orderId)
+                    .orElseThrow(() -> new RuntimeException("Payment not found"));
+
+            // 2. Handle events
+            if ("payment.captured".equals(event)) {
+
+                payment.setPaymentStatus(PaymentStatus.CONFIRMED);
+                payment.setPaymentId(paymentEntity.getString("id"));
+
+//                Booking booking = payment.getBooking();
+//                booking.setStatus(BookingStatus);
+
+//                bookingRepository.save(booking);
+                paymentRepository.save(payment);
+            }
+
+            if ("payment.failed".equals(event)) {
+                payment.setPaymentStatus(PaymentStatus.CANCELLED);
+                paymentRepository.save(payment);
+            }
+            return true;
+
+
+        } catch (Exception e) {
+           throw new RuntimeException("paymnet verification failed through webhook");
+        }
+    }
+
 
     public boolean hasBookingExpired(Booking booking) {
         return booking.getCreatedAt().plusMinutes(10).isBefore(LocalDateTime.now());
