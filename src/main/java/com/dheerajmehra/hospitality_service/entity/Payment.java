@@ -3,6 +3,7 @@ package com.dheerajmehra.hospitality_service.entity;
 
 import com.dheerajmehra.hospitality_service.entity.enums.PaymentStatus;
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Setter
+@Builder
 public class Payment {
 
     @Id
@@ -38,4 +40,6 @@ public class Payment {
 
     @OneToOne(fetch = FetchType.LAZY)
     private Booking booking;
+
+    private String paymentId;
 }
